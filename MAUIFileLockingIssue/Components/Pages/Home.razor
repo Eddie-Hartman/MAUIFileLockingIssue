@@ -1,0 +1,34 @@
+﻿@page "/"
+@using CommunityToolkit.Maui.Storage
+@using Microsoft.Data.Sqlite
+
+<h1>Welcome to the bug zone!</h1>
+
+<button class="btn btn-primary" @onclick="DownloadBackup">Download Backup</button>
+
+@code{
+    const string DB_FILE_NAME = "EFTest.db";
+
+    private async Task DownloadBackup()
+    {
+        string dbPath = Path.Combine(FileSystem.AppDataDirectory, DB_FILE_NAME);
+        string newPath = Path.Combine(FileSystem.AppDataDirectory, $"{DB_FILE_NAME}.bak");
+        await using (SqliteConnection connection = new($"Data Source={dbPath}"))
+        await using (SqliteConnection backupConnection = new($"Data Source={newPath}"))
+        {
+            await Task.WhenAll(connection.OpenAsync(), backupConnection.OpenAsync());
+
+            connection.BackupDatabase(backupConnection);
+
+            await Task.WhenAll(connection.CloseAsync(), backupConnection.CloseAsync());
+        }
+
+        await Task.Delay(100);
+
+        byte[] file = await File.ReadAllBytesAsync(newPath);
+
+        await FileSaver.Default.SaveAsync(DB_FILE_NAME, new MemoryStream(file));
+
+        File.Delete(newPath);
+    }
+}
